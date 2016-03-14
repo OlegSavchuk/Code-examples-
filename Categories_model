@@ -1,0 +1,141 @@
+<?php
+
+class Category extends Model{
+
+    public function getList(){
+        $sql = "select * from categories order by parent_id, title != 'Другое' desc, title";
+
+        return $this->db->query($sql);
+    }
+
+    public function getRootList(){
+        $sql = "select * from categories where parent_id = 0 order by priority desc";
+        return $this->db->query($sql);
+    }
+
+
+    public function getGroupsAmount() {
+        $sql = "
+    		SELECT group_name, count( a.id ) AS count
+			FROM adverts a
+			JOIN categories c ON ( a.category_id = c.id )
+			WHERE group_name IS NOT NULL;
+		";
+
+        $raw = $this->db->query($sql);
+        $arr = array();$i = -1;
+        foreach ($raw as $k => $v) {
+
+            if ($k%4 == 0) {
+                $i++;
+            }
+
+            if (!isset($arr[$i])) {
+                $arr[$i] = array();
+            }
+            array_push($arr[$i], $v);
+        }
+        return $arr;
+    }
+
+
+    /*public function getRootTitlesAndAmount() {
+    	$sql = "
+    	SELECT c.parent_id AS id, c2.title AS title, count( c.parent_id ) AS count
+		FROM categories c
+		JOIN adverts a ON ( c.id = a.category_id )
+		JOIN categories c2 ON ( c.parent_id = c2.id )
+		GROUP BY id
+		ORDER BY title
+		";
+		$arr = $this->db->query($sql);
+		$arr2 = array();$i = -1;
+		foreach ($arr as $k => $v) {
+
+			if ($k%4 == 0) {
+				$i++;
+			}
+
+			if (!isset($arr2[$i])) {
+				$arr2[$i] = array();
+			}
+			array_push($arr2[$i], $v);
+		}
+        return $arr2;
+    }*/
+
+    public function getById($id){
+        $id = (int)$id;
+        $sql = "select * from categories where id = {$id}";
+        $result = $this->db->query($sql);
+        return isset($result[0]) ? $result[0] : null;
+    }
+
+    public function save($data, $id = null){
+        if ( !isset($data['alias']) || !isset($data['title']) ){
+            return false;
+        }
+
+        $id = (int)$id;
+        $parent_id = (int)$data['parent_id'];
+        $priority = (int)$data['priority'];
+        $alias = $this->db->escape($data['alias']);
+        $title = $this->db->escape($data['title']);
+        $making = $this->db->escape($data['making']);
+        $seo_queries = $this->db->escape($data['seo_queries']);
+        $group_name = $this->db->escape($data['group_name']);
+        $is_active = isset($data['is_active']) ? 1 : 0;
+
+        if ( !$id ){
+            // Insert
+            $sql = "
+                insert into categories
+                   set parent_id   = '{$parent_id}',
+                       title   = '{$title}',
+                       alias = '{$alias}',
+                       making = '{$making}',
+                       seo_queries = '{$seo_queries}',
+                       priority = '{$priority}',
+                       is_active = '{$is_active}',
+                       group_name = '{$group_name}'
+            ";
+        } else {
+            // Update
+            $sql = "
+                update categories
+                   set parent_id   = '{$parent_id}',
+                       title   = '{$title}',
+                       alias = '{$alias}',
+                       making = '{$making}',
+                       seo_queries = '{$seo_queries}',
+                       priority = '{$priority}',
+                       is_active = '{$is_active}',
+                       group_name = '{$group_name}'
+                       where id = {$id}
+            ";
+        }
+
+        return $this->db->query($sql);
+    }
+
+    public function arrange($c_list) {
+
+        $categories = array();
+
+        foreach ($c_list as $k => $v) {
+            if (!$v['parent_id']) {
+                $categories[$v['id']] = array('title' => $v['title'], 'subs' => array());
+            }
+        }
+
+        foreach ($c_list as $k => $v) {
+            if ($v['parent_id']) {
+                $categories[$v['parent_id']]['subs'][$v['id']] = $v['title'];
+            }
+        }
+
+        return $categories;
+    }
+
+
+}
